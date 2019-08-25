@@ -166,6 +166,7 @@ namespace TrackResourcesMerger
                 body += "		},\n";
             }
 
+            //ToDo: extract config.
                 var fileEnd = "	},\n"
                  + "	[\"settings\"] = {\n"
                     + "		[\"alwaysShow\"] = false,\n"
