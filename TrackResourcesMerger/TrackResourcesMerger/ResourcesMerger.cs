@@ -13,71 +13,71 @@ namespace TrackResourcesMerger
         {
             var lua = new Lua();
             
-            if(args == null || args.Length < 3)
-            {
-                Console.WriteLine("Missing inputs 1: Path to a 'TrackResources.lua' that represents the source!");
-                Console.WriteLine("Missing inputs 2: Path to a 'TrackResources.lua' that represents the target!");
-                Console.ReadLine();
-                return;
-            }
+            //if(args == null || args.Length < 3)
+            //{
+            //    Console.WriteLine("Missing inputs 1: Path to a 'TrackResources.lua' that represents the source!");
+            //    Console.WriteLine("Missing inputs 2: Path to a 'TrackResources.lua' that represents the target!");
+            //    Console.ReadLine();
+            //    return;
+            //}
 
-            var sourceFilePath = args[0];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources.lua";
-            if (!File.Exists(sourceFilePath))
+            var firstSourceFilePath = @"E:\Downloads\TrackResources_merged.lua"; //args[0];//
+            if (!File.Exists(firstSourceFilePath))
             {
-                Console.WriteLine($"Source file '{sourceFilePath}' does not exists! Execution stopped.");
+                Console.WriteLine($"Source file '{firstSourceFilePath}' does not exists! Execution stopped.");
                 Console.ReadLine();
                 return;
             }
 
             // interpret file with LUA
-            var sourceLua = lua.DoFile(sourceFilePath);
-            var sourceTable = lua.GetTable("TrackResourcesCfg.db");
+            var firstSourceLua = lua.DoFile(firstSourceFilePath);
+            var firstSourceTable = lua.GetTable("TrackResourcesCfg.db");
 
-            if (sourceTable == null) {
-                Console.WriteLine($"Source database not found in file '{sourceFilePath}'. Wrong file?");
+            if (firstSourceTable == null) {
+                Console.WriteLine($"Source database not found in file '{firstSourceFilePath}'. Wrong file?");
                 Console.ReadLine();
                 return;
             }
 
-            var targetFilePath = args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
-            if (!File.Exists(targetFilePath))
+            var secondSourceFilePath = @"E:\Downloads\TrackResources_merged.lua"; //args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
+            if (!File.Exists(secondSourceFilePath))
             {
-                Console.WriteLine($"Target file '{targetFilePath}' does not exists! Execution stopped.");
+                Console.WriteLine($"Source file '{secondSourceFilePath}' does not exists! Execution stopped.");
                 Console.ReadLine();
                 return;
             }
 
-            var createBackup = bool.Parse(args[2]);
+            var mergeResultFileName = "TrackResources_merged.lua";
+            // var createBackup = false; // bool.Parse(args[2]);
 
-            var targetFileInfo = new FileInfo(targetFilePath);
+           //  var targetFileName = new FileInfo(secondSourceFilePath);
 
            // if (DirectoryHasPermission(targetFileInfo.Directory.FullName, FileSystemRights.CreateFiles))
            // {
                 // interpret file with LUA
-                var targetLua = lua.DoFile(targetFilePath);
-                var targetTable = lua.GetTable("TrackResourcesCfg.db");
+            var secondSourceLua = lua.DoFile(secondSourceFilePath);
+            var secondSourceTable = lua.GetTable("TrackResourcesCfg.db");
 
-                if (sourceTable == null)
-                {
-                    Console.WriteLine($"Target database not found in file '{targetFileInfo.FullName}'. Wrong file?");
-                    Console.ReadLine();
-                    return;
-                }
-
-                if (createBackup)
-                { 
-                    var backupFileName = $"TrackResources_PreMerge_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.bak";
-                    File.Copy(targetFilePath, Path.Combine(targetFileInfo.Directory.FullName, backupFileName));
-                    Console.WriteLine($"Created backup file '{backupFileName}' in directory '{targetFileInfo.Directory.FullName}'");
-                }
-
-
-                var mergedTable = JoinTable(targetTable, sourceTable);
-
-                WriteLuaTableFile(targetTable, targetFilePath);
-
-                Console.WriteLine("\n Merge Finished. Press Enter to close.");
+            if (secondSourceTable == null)
+            {
+                Console.WriteLine($"Target database not found in file '{secondSourceFilePath}'. Wrong file?");
                 Console.ReadLine();
+                return;
+            }
+
+            //if (createBackup)
+            //{ 
+            //    var backupFileName = $"TrackResources_PreMerge_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.bak";
+            //    File.Copy(secondSourceFilePath, Path.Combine(targetFileName.Directory.FullName, backupFileName));
+            //    Console.WriteLine($"Created backup file '{backupFileName}' in directory '{targetFileName.Directory.FullName}'");
+            //}
+
+            var mergedTable = JoinTable(firstSourceTable, secondSourceTable);
+
+            WriteLuaTableFile(mergedTable, mergeResultFileName);
+
+            Console.WriteLine("\n Merge Finished. Press Enter to close.");
+            Console.ReadLine();
           //  } 
          //   else
           //  {
@@ -87,7 +87,7 @@ namespace TrackResourcesMerger
          //   }
         }
 
-        public static LuaTable JoinTable(LuaTable targetTable, LuaTable sourceTable)
+        public static LuaTable JoinTable(LuaTable sourceTable, LuaTable targetTable)
         {
             // merge source file into target file
             foreach (DictionaryEntry sourceUiMapDic in sourceTable)
@@ -141,7 +141,7 @@ namespace TrackResourcesMerger
 
         public static void WriteLuaTableFile(LuaTable table, string filePath)
         {
-            var fileBegin = "TrackResourcesCfg = {\n"
+            var fileBegin = "\nTrackResourcesCfg = {\n"
                    + "	[\"db\"] = {" + "\n";
 
             var body = "";
@@ -155,10 +155,18 @@ namespace TrackResourcesMerger
                     foreach(DictionaryEntry cordsItem in (LuaTable)gatherItem.Value)
                     {
                         body += $"				[\"{cordsItem.Key}\"] = {{" + "\n";
-                        foreach(DictionaryEntry values in (LuaTable)cordsItem.Value)
+
+                        //foreach(DictionaryEntry values in (LuaTable)cordsItem.Value)
+                        //{
+                        //    body += $"					{values.Value},\n";
+                        //}
+
+                        for (int i = 1; i < ((LuaTable)cordsItem.Value).Keys.Count + 1; i++)
                         {
-                            body += $"					{values.Value},\n";
-                        }                   
+                            var curValue = ((LuaTable)cordsItem.Value)[i];
+                            body += $"					{curValue}, -- [{ i }]\n";
+                        }
+
                         body += "				},\n";
                     }
                     body += "			},\n";
