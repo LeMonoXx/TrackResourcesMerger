@@ -21,7 +21,7 @@ namespace TrackResourcesMerger
             //    return;
             //}
 
-            var firstSourceFilePath = @"E:\Downloads\TrackResources_merged.lua"; //args[0];//
+            var firstSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_wowhead.lua"; //args[0];//
             if (!File.Exists(firstSourceFilePath))
             {
                 Console.WriteLine($"Source file '{firstSourceFilePath}' does not exists! Execution stopped.");
@@ -39,7 +39,7 @@ namespace TrackResourcesMerger
                 return;
             }
 
-            var secondSourceFilePath = @"E:\Downloads\TrackResources_merged.lua"; //args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
+            var secondSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_wowhead.lua"; //args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
             if (!File.Exists(secondSourceFilePath))
             {
                 Console.WriteLine($"Source file '{secondSourceFilePath}' does not exists! Execution stopped.");
@@ -48,13 +48,8 @@ namespace TrackResourcesMerger
             }
 
             var mergeResultFileName = "TrackResources_merged.lua";
-            // var createBackup = false; // bool.Parse(args[2]);
 
-           //  var targetFileName = new FileInfo(secondSourceFilePath);
-
-           // if (DirectoryHasPermission(targetFileInfo.Directory.FullName, FileSystemRights.CreateFiles))
-           // {
-                // interpret file with LUA
+            // interpret file with LUA
             var secondSourceLua = lua.DoFile(secondSourceFilePath);
             var secondSourceTable = lua.GetTable("TrackResourcesCfg.db");
 
@@ -65,40 +60,34 @@ namespace TrackResourcesMerger
                 return;
             }
 
-            //if (createBackup)
-            //{ 
-            //    var backupFileName = $"TrackResources_PreMerge_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.bak";
-            //    File.Copy(secondSourceFilePath, Path.Combine(targetFileName.Directory.FullName, backupFileName));
-            //    Console.WriteLine($"Created backup file '{backupFileName}' in directory '{targetFileName.Directory.FullName}'");
-            //}
-
             var mergedTable = JoinTable(firstSourceTable, secondSourceTable);
 
             WriteLuaTableFile(mergedTable, mergeResultFileName);
 
             Console.WriteLine("\n Merge Finished. Press Enter to close.");
             Console.ReadLine();
-          //  } 
-         //   else
-          //  {
-          //      Console.WriteLine("Missing write permission to create merged TrackResources file.");
-          //      Console.ReadLine();
-         //       return;
-         //   }
         }
 
         public static LuaTable JoinTable(LuaTable sourceTable, LuaTable targetTable)
         {
-            // merge source file into target file
-            foreach (DictionaryEntry sourceUiMapDic in sourceTable)
+            // merge source file and target file
+            foreach (var entry in Consts.UiMapDic)
             {
-                Console.WriteLine($"Checking uiMap: {sourceUiMapDic.Key}");
+                object sourceUiMapDic = sourceTable[int.Parse(entry.Key.ToString())];
+
+                if(sourceUiMapDic == null)
+                {
+                    // there is no information for that ui map in the source file, lets skip it.
+                    continue;
+                }
+
+                Console.WriteLine($"Checking uiMap: { entry.Value }");
 
                 // if there is no uiMap, there is no data at all for that area. so we can grap
                 // the whole table and add it with all nodes in there.
-                if (targetTable[sourceUiMapDic.Key] is LuaTable targetUiMapT)
+                if (targetTable[entry.Key] is LuaTable targetUiMapT)
                 {
-                    foreach (DictionaryEntry sourceGatherItem in (LuaTable)sourceUiMapDic.Value)
+                    foreach (DictionaryEntry sourceGatherItem in (LuaTable)sourceUiMapDic)
                     {
                         Console.WriteLine($"    Checking gather item: {sourceGatherItem.Key}");
 
@@ -106,7 +95,7 @@ namespace TrackResourcesMerger
                         {
                             foreach (DictionaryEntry sourceCordsT in (LuaTable)sourceGatherItem.Value)
                             {
-                                Console.WriteLine($"            Checking cords: {sourceCordsT.Key}");
+                                // Console.WriteLine($"            Checking cords: {sourceCordsT.Key}");
 
                                 if (targetItemT[sourceCordsT.Key] is LuaTable targetCordsT)
                                 {
@@ -115,24 +104,24 @@ namespace TrackResourcesMerger
                                 else
                                 {
                                     // no entry for the current cords in that area for that item -> add it.
-                                    ((LuaTable)((LuaTable)targetTable[sourceUiMapDic.Key])[sourceGatherItem.Key])[sourceCordsT.Key] = sourceCordsT.Value;
-                                    Console.WriteLine($"            Added for uiMap '{sourceUiMapDic.Key}', gather item '{sourceGatherItem.Key}' on cords '{sourceCordsT.Key}'.");
+                                    ((LuaTable)((LuaTable)targetTable[entry.Key])[sourceGatherItem.Key])[sourceCordsT.Key] = sourceCordsT.Value;
+                                    WriteToConsole($"            Added coordinations '{sourceCordsT.Key}'.", ConsoleColor.Green);
                                 }
                             }
                         }
                         else
                         {
                             // if there is no gather-item entry for the current item in the current uiMap, add it and take alle subnodes with it.
-                            ((LuaTable)targetTable[sourceUiMapDic.Key])[sourceGatherItem.Key] = sourceGatherItem.Value;
-                            Console.WriteLine($"    Added for uiMap '{sourceUiMapDic.Key}', complete list of gather item '{sourceGatherItem.Key}'.");
+                            ((LuaTable)targetTable[entry.Key])[sourceGatherItem.Key] = sourceGatherItem.Value;
+                            WriteToConsole($"    Added all coordinations for gather item '{sourceGatherItem.Key}'.", ConsoleColor.Green);
                         }
                     }
                 }
                 else
                 {
                     // complete area is not in the target file. Add everything we got for tha area.
-                    targetTable[sourceUiMapDic.Key] = sourceUiMapDic.Value;
-                    Console.WriteLine($"Added all nodes for uiMap '{sourceUiMapDic.Key}' with all including items.");
+                    targetTable[entry.Key] = sourceUiMapDic;
+                    WriteToConsole($"Added all nodes for uiMap '{ Consts.UiMapDic[entry.Key] }' with all including items.\n", ConsoleColor.Green);
                 }
             }
 
@@ -141,29 +130,49 @@ namespace TrackResourcesMerger
 
         public static void WriteLuaTableFile(LuaTable table, string filePath)
         {
+
+            Console.Write("\nStart building up merged file... ");
+
             var fileBegin = "\nTrackResourcesCfg = {\n"
                    + "	[\"db\"] = {" + "\n";
 
             var body = "";
 
-            foreach (DictionaryEntry UiMapDic in table)
+            foreach (var entry in Consts.UiMapDic)
             {
-                body += $"		[{UiMapDic.Key}] = {{" + "\n";
-                foreach(DictionaryEntry gatherItem in (LuaTable)UiMapDic.Value)
+                object UiMapDic = table[entry.Key];
+
+                if (UiMapDic == null)
                 {
-                    body += $"			[{gatherItem.Key}] = {{" + "\n";
-                    foreach(DictionaryEntry cordsItem in (LuaTable)gatherItem.Value)
+                    // there is no information for that ui map in the source file, lets skip it.
+                    continue;
+                }
+
+                body += $"		[{entry.Key}] = {{" + "\n";
+
+                //foreach(DictionaryEntry gatherItem in (LuaTable)UiMapDic)
+                foreach (var gItemEntry in Consts.ResourceIconDic)
+                {
+                    object gItemDic = ((LuaTable)UiMapDic)[gItemEntry.Key];
+
+                    if (gItemDic == null)
+                    {
+                        // there is no information for that gather item in the source file, lets skip it.
+                        continue;
+                    }
+
+                    body += $"			[{gItemEntry.Key}] = {{" + "\n";
+                    foreach(DictionaryEntry cordsItem in (LuaTable)gItemDic)
                     {
                         body += $"				[\"{cordsItem.Key}\"] = {{" + "\n";
-
-                        //foreach(DictionaryEntry values in (LuaTable)cordsItem.Value)
-                        //{
-                        //    body += $"					{values.Value},\n";
-                        //}
 
                         for (int i = 1; i < ((LuaTable)cordsItem.Value).Keys.Count + 1; i++)
                         {
                             var curValue = ((LuaTable)cordsItem.Value)[i];
+
+                            // make sure that double numbers are displayed in the american format.
+                            curValue = curValue.ToString().Replace(",", ".");
+
                             body += $"					{curValue}, -- [{ i }]\n";
                         }
 
@@ -179,41 +188,26 @@ namespace TrackResourcesMerger
                  + "	[\"settings\"] = {\n"
                     + "		[\"alwaysShow\"] = false,\n"
                     + "		[\"showMinimap\"] = true,\n"
-                    + "		[\"sizeMinimap\"] = 12,\n"
+                    + "		[\"sizeMinimap\"] = 8,\n"
                     + "		[\"showZonemap\"] = true,\n"
-                    + "		[\"sizeZonemap\"] = 12,\n"
+                    + "		[\"sizeZonemap\"] = 8,\n"
                 + "	},\n"
                + "	[\"version\"] = 1,\n"
             + "}\n";
 
+            WriteToConsole("Done!\n", ConsoleColor.Green);
+            Console.Write("Start writing to file... ");
+
             File.WriteAllText(filePath, fileBegin + body + fileEnd);
+
+            WriteToConsole("Done!\n", ConsoleColor.Green);
         }
 
-        public static bool DirectoryHasPermission(string DirectoryPath, FileSystemRights AccessRight)
+        private static void WriteToConsole(string text, ConsoleColor color)
         {
-            if (string.IsNullOrEmpty(DirectoryPath)) return false;
-
-            try
-            {
-                var rules = Directory.GetAccessControl(DirectoryPath).GetAccessRules(true, true, typeof(SecurityIdentifier));
-                var identity = WindowsIdentity.GetCurrent();
-
-                foreach (FileSystemAccessRule rule in rules)
-                {
-                    if (identity.Groups.Contains(rule.IdentityReference))
-                    {
-                        if ((AccessRight & rule.FileSystemRights) == AccessRight)
-                        {
-                            if (rule.AccessControlType == AccessControlType.Allow)
-                            {
-                                return true;
-                            }     
-                        }
-                    }
-                }
-            }
-            catch { }
-            return false;
+            Console.ForegroundColor = color;
+            Console.Write(text);
+            Console.ResetColor();
         }
     }
 }
