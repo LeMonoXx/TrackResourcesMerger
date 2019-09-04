@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.IO;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using LuaInterface;
 
 namespace TrackResourcesMerger
@@ -21,7 +19,7 @@ namespace TrackResourcesMerger
             //    return;
             //}
 
-            var firstSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_wowhead.lua"; //args[0];//
+            var firstSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_simon.lua"; //args[0];//
             if (!File.Exists(firstSourceFilePath))
             {
                 Console.WriteLine($"Source file '{firstSourceFilePath}' does not exists! Execution stopped.");
@@ -39,7 +37,7 @@ namespace TrackResourcesMerger
                 return;
             }
 
-            var secondSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_wowhead.lua"; //args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
+            var secondSourceFilePath = @"C:\Repositories\TrackResourcesMerger\TrackResourcesMerger\lib\TrackResources_merged.lua"; //args[1];//@"E:\Applications\TrackResourcesMerger\TrackResourcesMerger\bin\Debug\TrackResources_target.lua";
             if (!File.Exists(secondSourceFilePath))
             {
                 Console.WriteLine($"Source file '{secondSourceFilePath}' does not exists! Execution stopped.");
@@ -105,7 +103,7 @@ namespace TrackResourcesMerger
                                 {
                                     // no entry for the current cords in that area for that item -> add it.
                                     ((LuaTable)((LuaTable)targetTable[entry.Key])[sourceGatherItem.Key])[sourceCordsT.Key] = sourceCordsT.Value;
-                                    WriteToConsole($"            Added coordinations '{sourceCordsT.Key}'.", ConsoleColor.Green);
+                                    WriteToConsole($"            Added coordinations '{sourceCordsT.Key}'.\n", ConsoleColor.Green);
                                 }
                             }
                         }
@@ -113,7 +111,8 @@ namespace TrackResourcesMerger
                         {
                             // if there is no gather-item entry for the current item in the current uiMap, add it and take alle subnodes with it.
                             ((LuaTable)targetTable[entry.Key])[sourceGatherItem.Key] = sourceGatherItem.Value;
-                            WriteToConsole($"    Added all coordinations for gather item '{sourceGatherItem.Key}'.", ConsoleColor.Green);
+                            var cordsCount = ((LuaTable)sourceGatherItem.Value).Keys.Count;
+                            WriteToConsole($"    Added {cordsCount} coordinations for gather item '{sourceGatherItem.Key}'.\n", ConsoleColor.Green);
                         }
                     }
                 }
@@ -133,6 +132,10 @@ namespace TrackResourcesMerger
 
             Console.Write("\nStart building up merged file... ");
 
+            var zoneCount = 0;
+            var gatherItemCount = 0;
+            var cordsCount = 0;
+
             var fileBegin = "\nTrackResourcesCfg = {\n"
                    + "	[\"db\"] = {" + "\n";
 
@@ -147,7 +150,6 @@ namespace TrackResourcesMerger
                     // there is no information for that ui map in the source file, lets skip it.
                     continue;
                 }
-
                 body += $"		[{entry.Key}] = {{" + "\n";
 
                 //foreach(DictionaryEntry gatherItem in (LuaTable)UiMapDic)
@@ -177,10 +179,14 @@ namespace TrackResourcesMerger
                         }
 
                         body += "				},\n";
+                        cordsCount++;
                     }
                     body += "			},\n";
+                    gatherItemCount++;
                 }
                 body += "		},\n";
+
+                zoneCount++;
             }
 
             //ToDo: extract config.
@@ -201,6 +207,8 @@ namespace TrackResourcesMerger
             File.WriteAllText(filePath, fileBegin + body + fileEnd);
 
             WriteToConsole("Done!\n", ConsoleColor.Green);
+
+            WriteToConsole($"Merged file contains now {cordsCount} coordinations of {gatherItemCount} differnt gather items in {zoneCount} zones.\n", ConsoleColor.DarkMagenta);
         }
 
         private static void WriteToConsole(string text, ConsoleColor color)
@@ -210,4 +218,19 @@ namespace TrackResourcesMerger
             Console.ResetColor();
         }
     }
+
+
+    /*
+     * 
+     * 				["33, 87"] = {
+					2771, -- [1]
+					134579, -- [2]
+					1416, -- [3]
+					0.334, -- [4]
+					0.873, -- [5]
+				},
+     * 
+     * 
+     * 
+     * */
 }
